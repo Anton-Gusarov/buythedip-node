@@ -1,0 +1,29 @@
+{
+  "name": "algotr",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^15.0.3",
+    "@types/ws": "^7.4.4",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.2.4"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.3.1",
+    "@grpc/proto-loader": "^0.6.2",
+    "@tinkoff/invest-openapi-js-sdk": "^1.2.19",
+    "@types/google-protobuf": "^3.15.2",
+    "@types/mongodb": "^3.6.15",
+    "mongodb": "^3.6.7",
+    "pumpify": "^2.0.1",
+    "talib": "^1.1.4",
+    "ws": "^7.4.6"
+  }
+}
