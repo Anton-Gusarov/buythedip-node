@@ -1,3 +1,5 @@
+// perhaps future api class
+
 import api from '../api/tink'
 import db from '../db'
 

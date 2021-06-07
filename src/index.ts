@@ -1,7 +1,6 @@
 import fs from 'fs'
 import { Duplex, pipeline, Readable, Stream, Transform, Writable } from 'stream';
 import getHistory from './history'
-import api, { mapCandle, mapInterval } from './api/tink'
 const tickers = ['CAT', 'QCOM', 'ADSK', 'VCEL', 'AMED', 'MELI', 'AXON', 'SGEN', 'ADBE', 'ARWR']
 import { connect as dbconnect } from './db'
 import db from './db'
@@ -10,39 +9,14 @@ import createGeneratorsTest from './tickers/backtest';
 import createRTGenerators from './tickers/tink';
 import { Candle } from '@tinkoff/invest-openapi-js-sdk';
 import Websocket from 'ws'
+import { createStore, insertCandle as storeInsertCandle } from './store';
+import { mapCandle } from './api';
 var talib = require('./build/Release/talib');
-enum Intervals {
-    MIN1 = '1min',
-    MIN3 = '3min',
-    MIN5 = '5min',
-    MIN15 = '15min',
-    DAY1 = '1day',
-}
-enum Indicators {
-    OPEN = 'open',
-    CLOSE = 'close',
-    HIGH = 'high',
-    LOW = 'low',
-    VOLUME = 'volume',
-}
 const backtestMode = true;
 const initialTake = 30
 const mapTickerFigi = {}
 // maybe use some ramda
-const createTickerFormat = ()=> {
-    const result = {}
-    for (const key in Indicators) result[key] = []
-    return result;
-}
-const createTickerBase = ()=>{
-    const result = {}
-    for (const key in Intervals) result[key] = createTickerFormat()
-    return result;
-}
-const store = tickers.reduce((store, ticker)=>{
-    store[ticker] = createTickerBase()
-    return store
-}, {})
+const store = createStore(tickers)
 async function* concatGenerators(...generators) {
     for (const gen of generators) {
         yield* gen
@@ -64,8 +38,7 @@ async function* concatGenerators(...generators) {
                     dataByTicker[ticker] = json;
                     // hack
                     mapTickerFigi[json[0].figi] = ticker;
-                    return dataByTicker;
-                } catch (e) { 
+                } finally {
                     return dataByTicker;
                 }
 
@@ -76,10 +49,10 @@ async function* concatGenerators(...generators) {
             },{})
             Object.keys(dataByTicker).forEach(ticker => dataByTicker[ticker] = dataByTicker[ticker].slice(initialTake))
             const generatorsTest = createGeneratorsTest(Object.values(dataByTicker))
-            // put the history into storage
-            historyDataByTicker.forEach(data=>{
-
-            })
+            // put the history into storage but it contains raw data so we need to map it
+            Object.keys(historyDataByTicker).forEach(ticker => {
+                historyDataByTicker[ticker]
+            });
             return generatorsTest
         } else {
             // perhaps we'll need concurrency in order to limit requests amount
@@ -94,10 +67,9 @@ async function* concatGenerators(...generators) {
     // create transform stream here to apply the map
     const allStreams = generators.map(gen => Readable.from(gen).pipe(new Transform({
         transform(candle: Candle, encoding, next) {
+            //TODO put mapTickerFigi into the store and use the store in the cache and then use a cache in order to get ticker name
             const mCandle = mapCandle(mapTickerFigi[candle.figi], candle);
-            const tickerStore = store[mCandle.ticker][mapInterval(mCandle.interval)]
-            for (const key in Indicators) tickerStore[key].push(candle[key]);
-            store[mCandle.ticker][mapInterval(mCandle.interval)].push(mCandle);
+            storeInsertCandle(store, mCandle)
             try {
                 this.push(mCandle);
                 next()
@@ -126,18 +98,6 @@ async function* concatGenerators(...generators) {
         // highly recommend to use pipe
         allStreams.forEach(stream => pipeline(stream, call, (err) => { console.log(err); }))
     }
-    // function CandlesNearestHistory(call, callback) {
-    //     // call.request
-    //     callback(null, { candle: data.slice(counter, initalTake + counter) });
-    // }
-    // var server = new grpc.Server();
-    // server.addService(candlesProto.CandleService.service, {
-    //     streamCandles,
-    //     // CandlesNearestHistory
-    // });
-    // server.bindAsync('0.0.0.0:50051', grpc.ServerCredentials.createInsecure(), () => {
-    //     server.start();
-    // });
     const wss = new Websocket.Server({ port: 8080 });
 
     wss.on('connection', function connection(ws: Websocket) {
@@ -156,13 +116,6 @@ async function* concatGenerators(...generators) {
     process.on('exit', (code) => {
         wss.clients.forEach((socket) => {
             socket.close();
-            // wont work
-            process.nextTick(() => {
-                if ([WebSocket.OPEN, WebSocket.CLOSING].includes(socket.readyState)) {
-                    // Socket still hangs, hard close
-                    socket.terminate();
-                }
-            });
         });
     });
 })()
