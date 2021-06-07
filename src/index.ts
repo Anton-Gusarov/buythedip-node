@@ -80,10 +80,7 @@ async function* concatGenerators(...generators) {
             historyDataByTicker.forEach(data=>{
 
             })
-            // I had to send history via grpc so that I did concat. Now not needed
-            return Object.values(dataByTicker).map((ticker) => {
-                return concatGenerators(historyDataByTicker[ticker], generatorsTest[idx])
-            })
+            return generatorsTest
         } else {
             // perhaps we'll need concurrency in order to limit requests amount
             const historyDatas = await Promise.all(tickers.map(ticker => getHistory(ticker)))
