@@ -15,5 +15,6 @@ export function mapInterval(v) {
 }
 
 export function mapCandle(ticker, candleIn) {
-    return mapCandleT(ticker, candleIn)
+    const newCandle = mapCandleT(ticker, candleIn);
+    return newCandle;
 }

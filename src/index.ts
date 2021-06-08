@@ -3,15 +3,15 @@ import { Duplex, pipeline, Readable, Stream, Transform, Writable } from 'stream'
 import getHistory from './history'
 const tickers = ['CAT', 'QCOM', 'ADSK', 'VCEL', 'AMED', 'MELI', 'AXON', 'SGEN', 'ADBE', 'ARWR']
 import { connect as dbconnect } from './db'
-import db from './db'
-import { grpc, candlesProto } from './api/grpc'
 import createGeneratorsTest from './tickers/backtest';
 import createRTGenerators from './tickers/tink';
 import { Candle } from '@tinkoff/invest-openapi-js-sdk';
 import Websocket from 'ws'
-import { createStore, insertCandle as storeInsertCandle } from './store';
+import { createStore, insertCandle, insertCandle as storeInsertCandle } from './store';
 import { mapCandle } from './api';
-var talib = require('./build/Release/talib');
+import { promisify } from 'util';
+var talib = require('talib/build/Release/talib')
+
 const backtestMode = true;
 const initialTake = 30
 const mapTickerFigi = {}
@@ -28,8 +28,6 @@ async function* concatGenerators(...generators) {
         // split into modules for now but later refacrtor it into hierarchical way, that is RT is always present but backtest is on top 
         if (backtestMode) {
             // will be removed after file reading is abandoned and switched to online data 
-            const activeTickers = {}
-            // TODO: refactor to dicts otherwise difficult to debug
             // todo ramda
             let dataByTicker = tickers.reduce((dataByTicker, ticker) => {
                 try {
@@ -38,7 +36,7 @@ async function* concatGenerators(...generators) {
                     dataByTicker[ticker] = json;
                     // hack
                     mapTickerFigi[json[0].figi] = ticker;
-                } finally {
+                } catch(e){} finally {
                     return dataByTicker;
                 }
 
@@ -51,8 +49,12 @@ async function* concatGenerators(...generators) {
             const generatorsTest = createGeneratorsTest(Object.values(dataByTicker))
             // put the history into storage but it contains raw data so we need to map it
             Object.keys(historyDataByTicker).forEach(ticker => {
-                historyDataByTicker[ticker]
+                historyDataByTicker[ticker].forEach(rawCandle => {
+                        const mCandle = mapCandle(ticker, rawCandle)
+                        insertCandle(store, mCandle)
+                });
             });
+
             return generatorsTest
         } else {
             // perhaps we'll need concurrency in order to limit requests amount
@@ -69,15 +71,28 @@ async function* concatGenerators(...generators) {
         transform(candle: Candle, encoding, next) {
             //TODO put mapTickerFigi into the store and use the store in the cache and then use a cache in order to get ticker name
             const mCandle = mapCandle(mapTickerFigi[candle.figi], candle);
-            storeInsertCandle(store, mCandle)
-            try {
-                this.push(mCandle);
+            storeInsertCandle(store, mCandle);
+            const marketData = store[mapTickerFigi[candle.figi]]['1min']
+            //TODO to different module
+            talib.execute({
+                name: "CMO",
+                startIdx: 0,
+                endIdx: marketData.close.length - 1,
+                // high: marketData.high,
+                // low: marketData.low,
+                inReal: marketData.close,
+                optInTimePeriod: 20
+            }, 
+            // shouldn't be errors unless data is valid. Check data instead
+            (err, res)=>{
+                if(err) debugger
+                // no need to keep indicators in store for now
+                this.push({
+                    ...mCandle,
+                    cmo: res.result.outReal.pop()
+                });
                 next()
-            } catch (e) {
-                debugger
-                console.log(e);
-
-            }
+            });
         },
         objectMode: true
     })))
@@ -90,7 +105,7 @@ async function* concatGenerators(...generators) {
         },
         objectMode: true
     });
-    streamCandles(emptyStream)
+    streamCandles(process.stdout)
 
     // At least one client should connect only after that it starts streaming, unless it accumulates beforehand
     function streamCandles(call: Writable) {
@@ -113,6 +128,7 @@ async function* concatGenerators(...generators) {
             .pipe(client)
         )
     });
+    //check if it is necessary
     process.on('exit', (code) => {
         wss.clients.forEach((socket) => {
             socket.close();
