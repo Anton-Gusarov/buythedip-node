@@ -1,13 +1,13 @@
 import { Candle, mapInterval } from "../api";
 
-enum Intervals {
+export enum Intervals {
     MIN1 = '1min',
     MIN3 = '3min',
     MIN5 = '5min',
     MIN15 = '15min',
-    DAY1 = '1day',
+    DAY1 = 'day',
 }
-enum Indicators {
+export enum Indicators {
     OPEN = 'open',
     CLOSE = 'close',
     HIGH = 'high',
@@ -31,6 +31,10 @@ export function createStore(tickers) {
     }, {})
 }
 export function insertCandle(store, candle: Candle) {
+    try {
     const tickerStore = store[candle.ticker][mapInterval(candle.interval)]
     for (const key in Indicators) tickerStore[Indicators[key]].push(candle[Indicators[key]]);
+    } catch (error) {
+        debugger
+    }
 }

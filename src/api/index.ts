@@ -1,4 +1,4 @@
-import { mapInterval as mapIntervalT, mapCandle as mapCandleT } from "./tink";
+import { mapInterval as mapIntervalT, mapCandle as mapCandleT, mapIntervalFrom as mapIntervalFromT } from "./tink";
 export type Candle = {
     open: Number,
     close: Number,
@@ -12,6 +12,9 @@ export type Candle = {
 // improve after second provider added
 export function mapInterval(v) {
     return mapIntervalT(v);
+}
+export function mapIntervalFrom(v) {
+    return mapIntervalFromT(v);
 }
 
 export function mapCandle(ticker, candleIn) {

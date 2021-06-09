@@ -1,9 +1,21 @@
 import api from './api/tink'
-import { Candles } from '@tinkoff/invest-openapi-js-sdk'
+import { Candles, CandleResolution } from '@tinkoff/invest-openapi-js-sdk'
 import db from './db'
 import { getCachedFigi } from './cache/cache';
+import { Intervals } from './store';
 
-export default async function getHistory(ticker: string, toTime: Date = new Date(Date.now()), fromTime: Date = null) {
+type HistoryOptions = {
+    interval?: Intervals, 
+    toTime?: Date,
+    fromTime?: Date | null
+}
+
+export default async function getHistory(ticker: string, {
+    interval = Intervals.MIN1, 
+    toTime = new Date(Date.now()), 
+    fromTime = null
+}: HistoryOptions = {}) {
+    // let {interval, fromTime, toTime} = options
     const figi = await getCachedFigi(ticker).catch(console.error)
     // - 2 hours
     if (!fromTime) {
@@ -16,7 +28,7 @@ export default async function getHistory(ticker: string, toTime: Date = new Date
             from: fromTime.toISOString(),
             to: toTime.toISOString(),
             figi,
-            interval: '1min',
+            interval: interval as CandleResolution
         });
     } catch (e) {
         console.error(e)

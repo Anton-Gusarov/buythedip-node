@@ -1,20 +1,21 @@
 import fs from 'fs'
 import { Duplex, pipeline, Readable, Stream, Transform, Writable } from 'stream';
 import getHistory from './history'
-const tickers = ['CAT', 'QCOM', 'ADSK', 'VCEL', 'AMED', 'MELI', 'AXON', 'SGEN', 'ADBE', 'ARWR']
+// const tickers = ['CAT', 'QCOM', 'ADSK', 'VCEL', 'AMED', 'MELI', 'AXON', 'SGEN', 'ADBE', 'ARWR']
+const tickers = ['CAT']
 import { connect as dbconnect } from './db'
 import createGeneratorsTest from './tickers/backtest';
 import createRTGenerators from './tickers/tink';
 import { Candle } from '@tinkoff/invest-openapi-js-sdk';
 import Websocket from 'ws'
-import { createStore, insertCandle, insertCandle as storeInsertCandle } from './store';
+import { createStore, insertCandle as storeInsertCandle, Intervals } from './store';
 import { mapCandle } from './api';
 import { promisify } from 'util';
+import { ArrayToMap } from './utils';
+import { getTickerByFIGI } from './cache/cache';
 var talib = require('talib/build/Release/talib')
 
 const backtestMode = true;
-const initialTake = 30
-const mapTickerFigi = {}
 // maybe use some ramda
 const store = createStore(tickers)
 async function* concatGenerators(...generators) {
@@ -29,29 +30,27 @@ async function* concatGenerators(...generators) {
         if (backtestMode) {
             // will be removed after file reading is abandoned and switched to online data 
             // todo ramda
-            let dataByTicker = tickers.reduce((dataByTicker, ticker) => {
-                try {
-                    const file = fs.readFileSync(`./data/${ticker.toLowerCase()}.json`, { encoding: 'utf-8' })
-                    const json = JSON.parse(file).payload.candles;
-                    dataByTicker[ticker] = json;
-                    // hack
-                    mapTickerFigi[json[0].figi] = ticker;
-                } catch(e){} finally {
-                    return dataByTicker;
-                }
+            const middleDate = new Date('2021-05-05T11:40:00Z'),
+            toTime = new Date(middleDate),
+            middleDateAnd1Sec = new Date(middleDate),
+            fromTime = new Date(middleDate);
+            toTime.setUTCHours(middleDate.getUTCHours() + 1)
+            fromTime.setUTCHours(middleDate.getUTCHours() - 3)
+            middleDateAnd1Sec.setUTCSeconds(middleDate.getUTCSeconds() + 1)
+            // don't want to split backtest data so make two requests
+            // change intervals to all but 1min FIRST!
+            const backtestHistory = await Promise.all(tickers.map(ticker => getHistory(ticker, {toTime: middleDate, fromTime})));
+            const backtestFutures = await Promise.all(tickers.map(ticker => getHistory(ticker, {toTime, fromTime: middleDateAnd1Sec})));
 
-            }, {});
-            const historyDataByTicker = Object.keys(dataByTicker).reduce((historyDataByTicker, ticker)=>{
-                historyDataByTicker[ticker] = dataByTicker[ticker].slice(0, initialTake);
-                return historyDataByTicker;
-            },{})
-            Object.keys(dataByTicker).forEach(ticker => dataByTicker[ticker] = dataByTicker[ticker].slice(initialTake))
-            const generatorsTest = createGeneratorsTest(Object.values(dataByTicker))
+            const backtestHistoryByTicker = ArrayToMap(tickers, backtestHistory);
+            const backtestFuturesByTicker = ArrayToMap(tickers, backtestFutures);
+
+            const generatorsTest = createGeneratorsTest(backtestFutures)
             // put the history into storage but it contains raw data so we need to map it
-            Object.keys(historyDataByTicker).forEach(ticker => {
-                historyDataByTicker[ticker].forEach(rawCandle => {
+            Object.keys(backtestHistoryByTicker).forEach(ticker => {
+                backtestHistoryByTicker[ticker].forEach(rawCandle => {
                         const mCandle = mapCandle(ticker, rawCandle)
-                        insertCandle(store, mCandle)
+                        storeInsertCandle(store, mCandle)
                 });
             });
 
@@ -69,10 +68,11 @@ async function* concatGenerators(...generators) {
     // create transform stream here to apply the map
     const allStreams = generators.map(gen => Readable.from(gen).pipe(new Transform({
         transform(candle: Candle, encoding, next) {
-            //TODO put mapTickerFigi into the store and use the store in the cache and then use a cache in order to get ticker name
-            const mCandle = mapCandle(mapTickerFigi[candle.figi], candle);
+            
+            const mCandle = mapCandle(getTickerByFIGI(candle.figi), candle);
             storeInsertCandle(store, mCandle);
-            const marketData = store[mapTickerFigi[candle.figi]]['1min']
+            // Calc for different intervals and give them all at 1min SECOND!!
+            const marketData = store[getTickerByFIGI(candle.figi)][Intervals.MIN1]
             //TODO to different module
             talib.execute({
                 name: "CMO",
@@ -83,7 +83,7 @@ async function* concatGenerators(...generators) {
                 inReal: marketData.close,
                 optInTimePeriod: 20
             }, 
-            // shouldn't be errors unless data is valid. Check data instead
+            // shouldn't be any errors unless data is valid. Check data instead
             (err, res)=>{
                 if(err) debugger
                 // no need to keep indicators in store for now
@@ -105,7 +105,7 @@ async function* concatGenerators(...generators) {
         },
         objectMode: true
     });
-    streamCandles(process.stdout)
+    if (!backtestMode) streamCandles(process.stdout)
 
     // At least one client should connect only after that it starts streaming, unless it accumulates beforehand
     function streamCandles(call: Writable) {

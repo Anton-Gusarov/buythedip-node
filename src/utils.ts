@@ -1,40 +1,26 @@
-// tink doesn't follow standard control flow with err first
-function tinkPromisify(funcWithCallback: Function) {
+export async function *Generatorify(funcWithCallback: Function, ...args) {
+    let resolve;
+    let results = [];
+    let promise = new Promise(r => resolve = r);
+    funcWithCallback.apply(null, [
+        ...args,
+        data => {
+            results.push(data);
+            resolve();
+            promise = new Promise(r => resolve = r);
+        }
+    ])
 
-    return (...args) => new Promise((res) => {
-        //wrap in try
-        funcWithCallback.apply(null, [
-            ...args,
-            res
-        ])
-    })
-}
-
-function* gen() {
-    while (true) {
-        const v = yield null;
-        yield v;
+    while(true) {
+        await promise;
+        yield* results;
+        results = [];
     }
 }
-export class Generatorify {
-    private gen;
-    constructor(funcWithCallback: Function, ...args) {
-        // this.callable = tinkPromisify(funcWithCallback).bind(null, ...args)
-        this.gen = gen();
-        this.gen.next()
-        funcWithCallback.apply(null, [
-            ...args,
-            ((data) => {
-                this.gen.next(data)
-            }).bind(this)
-        ])
-    }
 
-    async *[Symbol.asyncIterator]() {
-        // try {
-        yield* this.gen;
-        // } catch (err) {
-        //   yield err
-        // }
-    }
+export function ArrayToMap(keys, values) {
+    return keys.reduce((result, ticker, index)=>{
+        result[ticker] = values[index];
+        return result
+    }, {})
 }

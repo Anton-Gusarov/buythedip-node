@@ -14,7 +14,8 @@ export const mapCandle = (ticker, candleIn) => ({
     low: candleIn.l,
     volume: candleIn.v,
     time: candleIn.time,
-    interval: candleIn.interval,
+    interval: mapInterval(candleIn.interval),
     ticker
 });
 export const mapInterval = (val=>val)
+export const mapIntervalFrom = (val=>val)
