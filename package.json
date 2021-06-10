@@ -22,6 +22,7 @@
     "@tinkoff/invest-openapi-js-sdk": "^1.2.19",
     "@types/google-protobuf": "^3.15.2",
     "@types/mongodb": "^3.6.15",
+    "config": "^3.3.6",
     "mongodb": "^3.6.7",
     "pumpify": "^2.0.1",
     "talib": "^1.1.4",

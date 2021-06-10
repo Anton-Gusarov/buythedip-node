@@ -7,3 +7,12 @@ This screener designed mostly for my personal purposes allows to see several sto
 For now only one indicator is used for sorting but I speciafically made it extendable.
 
 Similar screeners are available at Investing.com and Tradingview but having own is better.
+
+Need to have config/default.json
+
+```
+{
+  "mongodbUri": "mongodb connection uri",
+  "tinkoffToken": "bank token"
+}
+```

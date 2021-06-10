@@ -1,4 +1,3 @@
-import fs from "fs";
 import {
   Duplex,
   pipeline,
@@ -26,6 +25,7 @@ import { mapCandle } from "./api";
 import { promisify } from "util";
 import { ArrayToMap } from "./utils";
 import { getTickerByFIGI } from "./cache/cache";
+import config from "config";
 var talib = require("talib/build/Release/talib");
 
 const backtestMode = true;
@@ -37,7 +37,7 @@ async function* concatGenerators(...generators) {
   }
 }
 (async () => {
-  await dbconnect();
+  await dbconnect(config.get("mongodbUri"));
   const generators = await (async () => {
     // split into modules for now but later refacrtor it into hierarchical way, that is RT is always present but backtest is on top
     if (backtestMode) {
