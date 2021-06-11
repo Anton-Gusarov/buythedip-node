@@ -24,3 +24,9 @@ export function ArrayToMap(keys, values) {
     return result;
   }, {});
 }
+
+export async function* concatGenerators(...generators) {
+  for (const gen of generators) {
+    yield* gen;
+  }
+}

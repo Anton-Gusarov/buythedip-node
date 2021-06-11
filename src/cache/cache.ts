@@ -3,12 +3,15 @@
 import api from "../api/tink";
 import db from "../db";
 // figi->ticker
-const mapTickerFigi = {};
+const mapTickerFIGI = {};
+const mapFIGITicker = {};
 export async function getCachedFigi(ticker: string) {
+  if (mapTickerFIGI[ticker]) return mapTickerFIGI[ticker];
   const tickers = db().collection("tickers");
   let tickerDB;
   if (true === !!(tickerDB = await tickers.findOne({ ticker }))) {
-    mapTickerFigi[tickerDB.figi] = ticker;
+    mapFIGITicker[tickerDB.figi] = ticker;
+    mapTickerFIGI[ticker] = tickerDB.figi;
     return tickerDB.figi;
   }
   const { figi } = await api.searchOne({ ticker });
@@ -17,10 +20,11 @@ export async function getCachedFigi(ticker: string) {
     figi,
     ticker,
   });
-  mapTickerFigi[figi] = ticker;
+  mapFIGITicker[figi] = ticker;
+  mapTickerFIGI[ticker] = figi;
   return figi;
 }
-
+// No db queries here because the app doesn't know any figis
 export function getTickerByFIGI(figi) {
-  return mapTickerFigi[figi];
+  return mapFIGITicker[figi];
 }

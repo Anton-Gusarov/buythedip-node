@@ -14,6 +14,15 @@ export enum Indicators {
   LOW = "low",
   VOLUME = "volume",
 }
+export type MarketData = {
+  [key in Indicators]: Number[];
+};
+export type TickerHistoryStore = {
+  [key in Intervals]: MarketData;
+};
+export type Store = {
+  [tickers: string]: TickerHistoryStore;
+};
 const createTickerFormat = () => {
   const result = {};
   for (const key in Indicators) result[Indicators[key]] = [];
@@ -30,11 +39,14 @@ export function createStore(tickers) {
     return store;
   }, {});
 }
-export function insertCandle(store, candle: Candle) {
+export function insertToMarketData(marketData: MarketData, candle: Candle) {
+  for (const key in Indicators)
+    marketData[Indicators[key]].push(candle[Indicators[key]]);
+}
+export function insertCandle(store: Store, candle: Candle) {
   try {
-    const tickerStore = store[candle.ticker][mapInterval(candle.interval)];
-    for (const key in Indicators)
-      tickerStore[Indicators[key]].push(candle[Indicators[key]]);
+    const marketData: MarketData = store[candle.ticker][candle.interval];
+    insertToMarketData(marketData, candle);
   } catch (error) {
     debugger;
   }

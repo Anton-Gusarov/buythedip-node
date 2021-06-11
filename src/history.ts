@@ -1,8 +1,9 @@
 import api from "./api/tink";
 import { Candles, CandleResolution } from "@tinkoff/invest-openapi-js-sdk";
 import db from "./db";
-import { getCachedFigi } from "./cache/cache";
+import { getCachedFigi, getTickerByFIGI } from "./cache/cache";
 import { Intervals } from "./store";
+import { mapCandle } from "./api";
 
 type HistoryOptions = {
   interval?: Intervals;
@@ -37,5 +38,7 @@ export default async function getHistory(
     console.error(e);
     return [];
   }
-  return candles.candles;
+  return candles.candles.map((candle) =>
+    mapCandle(getTickerByFIGI(candle.figi), candle)
+  );
 }
