@@ -14,6 +14,18 @@ export enum Indicators {
   LOW = "low",
   VOLUME = "volume",
 }
+// store = {
+//   'CAT': [
+//     '1min': Candle[],
+//     '3min': Candle[],
+//     ...
+//   ],
+//   'ARWR': [
+//     '1min': Candle[],
+//     '3min': Candle[],
+//     ...
+//   ],
+// }
 export type MarketData = {
   [key in Indicators]: Number[];
 };

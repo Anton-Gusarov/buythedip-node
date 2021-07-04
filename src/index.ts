@@ -48,8 +48,10 @@ const store = createStore(tickers);
       middleDateAnd1Sec.setUTCSeconds(middleDate.getUTCSeconds() + 1);
       // don't want to split backtest data so make two requests
       // constrains 100 requessts per 1 min
+      // backtest history has different format than store
       const backtestHistory: BacktestHistory = await Promise.all(
         // intervals array
+        // no need to flatten array they are all simultanious
         Object.keys(Intervals).map((intervalKey) =>
           // tickers array
           Promise.all(
@@ -60,11 +62,15 @@ const store = createStore(tickers);
                 fromTime,
                 interval: Intervals[intervalKey],
               })
+
+              // insert candles here into store
             )
           )
         )
       );
 
+
+      // no needed
       //TODO grab all candles for all tickers and then sort them all by date.
       // only 1 min for now
       const backtestFutures = await Promise.all(
