@@ -25,7 +25,10 @@
     "config": "^3.3.6",
     "mongodb": "^3.6.7",
     "pumpify": "^2.0.1",
+    "reflect-metadata": "^0.1.13",
+    "sqlite3": "^5.0.2",
     "talib": "^1.1.4",
+    "typeorm": "^0.2.34",
     "ws": "^7.4.6"
   }
 }

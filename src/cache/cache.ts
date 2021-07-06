@@ -1,7 +1,7 @@
 // perhaps future api class
 
 import api from "../api/tink";
-import db from "../db";
+import db from "../db/mongo";
 // figi->ticker
 const mapTickerFIGI = {};
 const mapFIGITicker = {};

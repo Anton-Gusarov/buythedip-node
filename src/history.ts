@@ -1,6 +1,6 @@
 import api from "./api/tink";
 import { Candles, CandleResolution } from "@tinkoff/invest-openapi-js-sdk";
-import db from "./db";
+import db from "./db/sqlite";
 import { getCachedFigi, getTickerByFIGI } from "./cache/cache";
 import { Intervals } from "./store";
 import { mapCandle } from "./api";

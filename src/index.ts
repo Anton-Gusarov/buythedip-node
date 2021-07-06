@@ -6,12 +6,10 @@ import {
   Transform,
   Writable,
 } from "stream";
-
+import "reflect-metadata";
 import getHistory from "./history";
 // const tickers = ['CAT', 'QCOM', 'ADSK', 'VCEL', 'AMED', 'MELI', 'AXON', 'SGEN', 'ADBE', 'ARWR']
 const tickers = ["CAT"];
-
-import { connect as dbconnect } from "./db";
 import createGeneratorsTest from "./tickers/backtest";
 import createRTGenerators from "./tickers/tink";
 import Websocket from "ws";
@@ -26,6 +24,10 @@ import { ArrayToMap, concatGenerators } from "./utils";
 import { getTickerByFIGI } from "./cache/cache";
 import config from "config";
 import { CMO } from "./algo";
+import { CandleDB } from "./entity/Candle";
+import { getRepository, MoreThan } from "typeorm";
+import sqliteConnect, { getCandleRepository } from "./db/sqlite";
+import { connect as mongoConnect } from "./db/mongo";
 var talib = require("talib/build/Release/talib");
 type BacktestHistory = Candle[][][];
 const backtestMode = true;
@@ -33,12 +35,14 @@ const backtestMode = true;
 const store = createStore(tickers);
 
 (async () => {
-  await dbconnect(config.get("mongodbUri"));
+  await mongoConnect(config.get("mongodbUri"));
+  await sqliteConnect();
+  const candlesRepository = getCandleRepository();
   const generators = await (async () => {
     // split into modules for now but later refacrtor it into hierarchical way, that is RT is always present but backtest is on top
     if (backtestMode) {
       // will be removed after file reading is abandoned and switched to online data
-      // todo ramda
+      // convert date to timestamp and figure out how to manage it. sqlite doesn't support date and typeorm doesnt manage it
       const middleDate = new Date("2021-05-05T11:40:00Z"),
         toTime = new Date(middleDate),
         middleDateAnd1Sec = new Date(middleDate),
@@ -46,50 +50,45 @@ const store = createStore(tickers);
       toTime.setUTCHours(middleDate.getUTCHours() + 2);
       fromTime.setUTCHours(middleDate.getUTCHours() - 22);
       middleDateAnd1Sec.setUTCSeconds(middleDate.getUTCSeconds() + 1);
-      // don't want to split backtest data so make two requests
       // constrains 100 requessts per 1 min
-      // backtest history has different format than store
-      const backtestHistory: BacktestHistory = await Promise.all(
-        // intervals array
-        // no need to flatten array they are all simultanious
-        Object.keys(Intervals).map((intervalKey) =>
-          // tickers array
-          Promise.all(
-            tickers.map((ticker) =>
-              // candles array
-              getHistory(ticker, {
-                toTime: middleDate,
-                fromTime,
-                interval: Intervals[intervalKey],
-              })
-
-              // insert candles here into store
+      const backtestHistory: Candle[] = (
+        (await Promise.all(
+          // intervals array
+          // no need to flatten array they are all simultanious
+          Object.keys(Intervals).map((intervalKey) =>
+            // tickers array
+            Promise.all(
+              tickers.map((ticker) =>
+                // candles array
+                getHistory(ticker, {
+                  toTime,
+                  fromTime,
+                  interval: Intervals[intervalKey],
+                })
+              )
             )
           )
-        )
-      );
-
-
-      // no needed
-      //TODO grab all candles for all tickers and then sort them all by date.
-      // only 1 min for now
+        )) as BacktestHistory
+      ).flat(2);
+      await candlesRepository.insert(backtestHistory);
       const backtestFutures = await Promise.all(
-        tickers.map((ticker) =>
-          getHistory(ticker, { toTime, fromTime: middleDateAnd1Sec })
-        )
+        tickers.map((ticker) => {
+          // convenience first
+          return candlesRepository.find({
+            where: {
+              interval: Intervals.MIN1,
+              ticker,
+              // :(
+              time: MoreThan(middleDate),
+            },
+            order: {
+              time: "ASC",
+            },
+          });
+        })
       );
-
       // TODO change generators to operate by time not by candles and serve candles for a particular minute
       const generatorsTest = createGeneratorsTest(backtestFutures);
-      // put the history into storage. We can do it only here not above
-      //TODO ramda
-      backtestHistory.forEach((intervalHistory) => {
-        intervalHistory.forEach((tickerHistory) => {
-          tickerHistory.forEach((candle) => {
-            storeInsertCandle(store, candle);
-          });
-        });
-      });
 
       return generatorsTest;
     } else {
@@ -192,3 +191,6 @@ const store = createStore(tickers);
     });
   });
 })();
+// "typeorm": "0.2.34",
+// "reflect-metadata": "^0.1.10",
+// "sqlite3": "^4.0.3"

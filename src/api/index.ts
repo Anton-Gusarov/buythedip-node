@@ -4,12 +4,12 @@ import {
   mapIntervalFrom as mapIntervalFromT,
 } from "./tink";
 export type Candle = {
-  open: Number;
-  close: Number;
-  high: Number;
-  low: Number;
-  volume: Number;
-  time: string;
+  open: number;
+  close: number;
+  high: number;
+  low: number;
+  volume: number;
+  time: Date;
   interval: string;
   ticker: string;
 };
