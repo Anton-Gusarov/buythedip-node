@@ -22,7 +22,7 @@ export const mapCandle = (ticker, candleIn) => ({
   high: candleIn.h,
   low: candleIn.l,
   volume: candleIn.v,
-  time: new Date(Date.parse(candleIn.time)),
+  time: Date.parse(candleIn.time),
   interval: mapInterval(candleIn.interval),
   ticker,
 });

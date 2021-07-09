@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, Index } from "typeorm";
 
 @Entity()
 export class CandleDB {
@@ -14,8 +14,15 @@ export class CandleDB {
   low: number;
   @Column()
   volume: number;
+  @Column({ nullable: true })
+  cmo3: number;
+  @Column({ nullable: true })
+  cmo5: number;
+  @Column({ nullable: true })
+  cmo15: number;
+  @Index()
   @Column()
-  time: Date;
+  time: number;
   @Column()
   interval: string;
   @Column()

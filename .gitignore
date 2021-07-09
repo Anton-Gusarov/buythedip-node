@@ -3,3 +3,7 @@ node_modules/
 build/
 tmp/
 temp/
+config/default.json
+t.js
+db.db
+.DS_Store

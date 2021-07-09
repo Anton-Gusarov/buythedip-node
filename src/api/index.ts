@@ -9,9 +9,12 @@ export type Candle = {
   high: number;
   low: number;
   volume: number;
-  time: Date;
+  time: number;
   interval: string;
   ticker: string;
+  cmo3?: number;
+  cmo5?: number;
+  cmo15?: number;
 };
 // improve after second provider added
 export function mapInterval(v) {
