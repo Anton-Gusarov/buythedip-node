@@ -8,8 +8,19 @@ import {
 } from "stream";
 import "reflect-metadata";
 import getHistory from "./history";
-// const tickers = ['CAT', 'QCOM', 'ADSK', 'VCEL', 'AMED', 'MELI', 'AXON', 'SGEN', 'ADBE', 'ARWR']
-const tickers = ["CAT"];
+const tickers = [
+  "CAT",
+  "QCOM",
+  "ADSK",
+  "VCEL",
+  "AMED",
+  "MELI",
+  "AXON",
+  "SGEN",
+  "ADBE",
+  "ARWR",
+];
+// const tickers = ["CAT"];
 import createGeneratorsTest from "./tickers/backtest";
 import createRTGenerators from "./tickers/tink";
 import Websocket from "ws";
@@ -75,7 +86,11 @@ const backtestMode = true;
           )
         )) as BacktestHistory
       ).flat(2);
-      await candlesRepository.insert(backtestHistory);
+      for (let index = 0; index < backtestHistory.length; index += 400) {
+        await candlesRepository.insert(
+          backtestHistory.slice(index, index + 400)
+        );
+      }
 
       return [mainGenerator(Number(middleDate) + 1, tickers)];
     } else {
