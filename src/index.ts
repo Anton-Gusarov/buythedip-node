@@ -10,11 +10,11 @@ import "reflect-metadata";
 import getHistory from "./history";
 const tickers = [
   "CAT",
-  "QCOM",
-  "ADSK",
-  "VCEL",
-  "AMED",
-  "MELI",
+  // "QCOM",
+  // "ADSK",
+  // "VCEL",
+  // "AMED",
+  // "MELI",
   "AXON",
   "SGEN",
   "ADBE",

@@ -1,11 +1,23 @@
-import { LessThan, LessThanOrEqual } from "typeorm";
+import { Between, LessThan, LessThanOrEqual } from "typeorm";
 import { CMO } from "../algo";
-import { Candle } from "../api";
+import {
+  Candle,
+  CandleOutput,
+  CandleOutputIndicators,
+  CMOIndicator,
+} from "../api";
 import { getCandleRepository } from "../db/sqlite";
 import { Intervals } from "../store";
+interface indicatorsMixin {
+  maxTime: number;
+  maxPrice: number;
+  minTime: number;
+  minPrice: number;
+}
+const twoHours = 1000 * 60 * 60 * 2;
 // for visual backtesting
 function delay() {
-  return new Promise((res) => setTimeout(res, 1000));
+  return new Promise((res) => setTimeout(res, 3000));
 }
 // no need anymore but here for future ideas
 async function* genrator1min() {
@@ -19,11 +31,29 @@ async function* genrator1min() {
     yield candles;
   }
 }
-
+function getIndicators(history, computedHistory): indicatorsMixin {
+  const reversedIndexMax =
+    computedHistory.length -
+    computedHistory.lastIndexOf(Math.max(...computedHistory));
+  const reversedIndexMin =
+    computedHistory.length -
+    computedHistory.lastIndexOf(Math.min(...computedHistory));
+  // array.at is not here...
+  const maxTime = history[history.length - reversedIndexMax].time;
+  const maxPrice = history[history.length - reversedIndexMax].close;
+  const minTime = history[history.length - reversedIndexMin].time;
+  const minPrice = history[history.length - reversedIndexMin].close;
+  return {
+    maxTime,
+    maxPrice,
+    minTime,
+    minPrice,
+  };
+}
 export default async function* mainGenerator(
   start_ts: number,
   tickers: string[]
-): AsyncGenerator<Candle[]> {
+): AsyncGenerator<CandleOutput[]> {
   const db = getCandleRepository();
   let ts = (
     await db.findOne({
@@ -37,7 +67,7 @@ export default async function* mainGenerator(
   ).time;
   while (true) {
     // get all sorts of candles for this ts. ts is descrete based on minute
-    let allCandles: Candle[] = await Promise.all(
+    let allCandles: CandleOutput[] = await Promise.all(
       // tickers array
       tickers.map(async (ticker) => {
         // candles array
@@ -56,6 +86,16 @@ export default async function* mainGenerator(
           },
           order: { time: "ASC" },
         });
+        const history3minMaxminLength = (
+          await db.find({
+            where: {
+              time: Between(ts - twoHours, ts),
+              interval: Intervals.MIN3,
+              ticker,
+            },
+            order: { time: "ASC" },
+          })
+        ).length;
         const history5min = await db.find({
           where: {
             time: LessThan(ts),
@@ -74,18 +114,24 @@ export default async function* mainGenerator(
         });
         const cmo3 = (
           await CMO({ close: history3min.map((v) => v.close) }, candle)
-        ).result.outReal.pop();
+        ).result.outReal;
+        const cmo3Slice = cmo3.slice(-history3minMaxminLength);
+        const cmo3Mixin = getIndicators(history3min, cmo3Slice);
+        const indicators: CandleOutputIndicators[] = [];
+        indicators.push({
+          type: "cmo3",
+          value: cmo3.pop(),
+          ...cmo3Mixin,
+        } as CMOIndicator);
         const cmo5 = (
           await CMO({ close: history5min.map((v) => v.close) }, candle)
-        ).result.outReal.pop();
+        ).result.outReal;
         const cmo15 = (
           await CMO({ close: history15min.map((v) => v.close) }, candle)
-        ).result.outReal.pop();
-        const modifiedCandle: Candle = {
+        ).result.outReal;
+        const modifiedCandle: CandleOutput = {
           ...candle,
-          cmo3,
-          cmo5,
-          cmo15,
+          indicators,
         };
         return modifiedCandle;
       })

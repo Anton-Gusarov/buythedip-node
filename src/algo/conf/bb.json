@@ -1,0 +1,12 @@
+{
+  "breakout": 3,
+  "MAType": 1,
+  "candleSize": 1,
+  "enableLog": true,
+  "thresholds": {
+    "down": -0.55,
+    "up": 0.1,
+    "persistence": 1,
+    "sidewaysPercent": 3.5
+  }
+}

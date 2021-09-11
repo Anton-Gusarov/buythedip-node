@@ -12,10 +12,25 @@ export type Candle = {
   time: number;
   interval: string;
   ticker: string;
-  cmo3?: number;
-  cmo5?: number;
-  cmo15?: number;
 };
+
+export interface CMOIndicator extends CandleOutputIndicators {
+  value: number;
+  maxTime: number;
+  maxPrice: number;
+  minTime: number;
+  minPrice: number;
+}
+export interface CandleOutputIndicators {
+  type: string;
+}
+export interface CandleOutput extends Candle {
+  indicators: CandleOutputIndicators[];
+}
+interface CandleOutputTodo {
+  type: "candle"; // needed to distinguish ws events
+  payload: CandleOutput;
+}
 // improve after second provider added
 export function mapInterval(v) {
   return mapIntervalT(v);
