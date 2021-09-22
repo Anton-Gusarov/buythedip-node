@@ -13,6 +13,8 @@ interface indicatorsMixin {
   maxPrice: number;
   minTime: number;
   minPrice: number;
+  minValue: number;
+  maxValue: number;
 }
 const twoHours = 1000 * 60 * 60 * 2;
 // for visual backtesting
@@ -31,13 +33,13 @@ async function* genrator1min() {
     yield candles;
   }
 }
-function getIndicators(history, computedHistory): indicatorsMixin {
+function getIndicators(history, indicatorHistory): indicatorsMixin {
+  const maxValue = Math.max(...indicatorHistory);
+  const minValue = Math.min(...indicatorHistory);
   const reversedIndexMax =
-    computedHistory.length -
-    computedHistory.lastIndexOf(Math.max(...computedHistory));
+    indicatorHistory.length - indicatorHistory.lastIndexOf(maxValue);
   const reversedIndexMin =
-    computedHistory.length -
-    computedHistory.lastIndexOf(Math.min(...computedHistory));
+    indicatorHistory.length - indicatorHistory.lastIndexOf(minValue);
   // array.at is not here...
   const maxTime = history[history.length - reversedIndexMax].time;
   const maxPrice = history[history.length - reversedIndexMax].close;
@@ -48,6 +50,8 @@ function getIndicators(history, computedHistory): indicatorsMixin {
     maxPrice,
     minTime,
     minPrice,
+    maxValue,
+    minValue,
   };
 }
 export default async function* mainGenerator(
